@@ -1,0 +1,171 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --background: 30 60% 97%;
+        --foreground: 0 0% 10%;
+        --card: 0 0% 100%;
+        --card-foreground: 0 0% 10%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 0 0% 10%;
+        --primary: 0 63% 47%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 41 100% 51%;
+        --secondary-foreground: 0 0% 10%;
+        --muted: 30 30% 94%;
+        --muted-foreground: 0 0% 30%;
+        --accent: 25 60% 31%;
+        --accent-foreground: 0 0% 100%;
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 25 40% 88%;
+        --input: 25 30% 90%;
+        --ring: 0 63% 47%;
+        --radius: 0.75rem;
+    }
+    .dark {
+        --background: 0 0% 6%;
+        --foreground: 0 0% 96%;
+        --card: 0 0% 10%;
+        --card-foreground: 0 0% 96%;
+        --popover: 0 0% 10%;
+        --popover-foreground: 0 0% 96%;
+        --primary: 0 78% 55%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 45 100% 51%;
+        --secondary-foreground: 0 0% 10%;
+        --muted: 0 0% 14%;
+        --muted-foreground: 0 0% 65%;
+        --accent: 22 55% 40%;
+        --accent-foreground: 0 0% 98%;
+        --destructive: 0 62.8% 30.6%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 0 0% 18%;
+        --input: 0 0% 18%;
+        --ring: 0 78% 55%;
+    }
+}
+
+@layer base {
+    * { @apply border-border; }
+    html { scroll-behavior: smooth; }
+    body {
+        @apply bg-background text-foreground font-body antialiased;
+        margin: 0;
+        font-feature-settings: 'ss01', 'cv11';
+    }
+    h1, h2, h3, h4, h5, .font-display { font-family: 'Playfair Display', serif; letter-spacing: -0.02em; }
+    ::selection { background: #C62828; color: white; }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #C62828, #8B4513);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: #A02020; background-clip: padding-box; }
+
+/* Utilities */
+.text-balance { text-wrap: balance; }
+.glass {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: saturate(180%) blur(18px);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+}
+.dark .glass {
+    background: rgba(15, 15, 15, 0.72);
+}
+.grain::after {
+    content: "";
+    position: absolute; inset: 0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.6 0 0 0 0 0.4 0 0 0 0 0.2 0 0 0 0.08 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    opacity: 0.5; pointer-events: none; mix-blend-mode: multiply;
+}
+
+.divider-line {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, currentColor, transparent);
+    opacity: 0.2;
+}
+
+.overline {
+    font-family: 'Outfit', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.28em;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* Ripple */
+.ripple { position: relative; overflow: hidden; }
+.ripple::after {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(255,255,255,0.35), transparent 40%);
+    opacity: 0; transition: opacity 0.6s;
+}
+.ripple:active::after { opacity: 1; transition: opacity 0s; }
+
+/* Masonry columns fix */
+.masonry > * { break-inside: avoid; }
+
+/* Loader */
+.loader-ring {
+    width: 64px; height: 64px; border-radius: 50%;
+    border: 3px solid rgba(198,40,40,0.15);
+    border-top-color: #C62828;
+    animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Floating label */
+.float-field { position: relative; }
+.float-field input, .float-field textarea, .float-field select {
+    width: 100%;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid hsl(var(--border));
+    padding: 1.5rem 0 0.5rem 0;
+    outline: none;
+    font-family: 'Outfit', sans-serif;
+    color: hsl(var(--foreground));
+    transition: border-color 200ms;
+}
+.float-field input:focus, .float-field textarea:focus, .float-field select:focus {
+    border-bottom-color: #C62828;
+}
+.float-field label {
+    position: absolute; left: 0; top: 1.25rem;
+    pointer-events: none;
+    color: hsl(var(--muted-foreground));
+    transition: all 200ms ease;
+    font-size: 0.95rem;
+}
+.float-field input:focus + label,
+.float-field input:not(:placeholder-shown) + label,
+.float-field textarea:focus + label,
+.float-field textarea:not(:placeholder-shown) + label,
+.float-field select:focus + label,
+.float-field select:valid + label {
+    top: 0; font-size: 0.72rem; letter-spacing: 0.18em;
+    text-transform: uppercase; color: #C62828;
+}
+
+@layer base {
+    [data-debug-wrapper="true"] { display: contents !important; }
+    [data-debug-wrapper="true"] > * {
+        margin-left: inherit; margin-right: inherit; margin-top: inherit; margin-bottom: inherit;
+        padding-left: inherit; padding-right: inherit; padding-top: inherit; padding-bottom: inherit;
+        column-gap: inherit; row-gap: inherit; gap: inherit;
+        border-left-width: inherit; border-right-width: inherit; border-top-width: inherit; border-bottom-width: inherit;
+        border-left-style: inherit; border-right-style: inherit; border-top-style: inherit; border-bottom-style: inherit;
+        border-left-color: inherit; border-right-color: inherit; border-top-color: inherit; border-bottom-color: inherit;
+    }
+}
