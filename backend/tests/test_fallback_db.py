@@ -64,3 +64,46 @@ async def test_fallback_database_update_one_api_compatibility():
     )
     assert res_kwargs.matched_count == 1
     assert res_kwargs.modified_count == 1
+
+
+@pytest.mark.anyio
+async def test_database_proxy_fails_on_explicit_invalid_mongo_url(monkeypatch):
+    from server import DatabaseProxy
+    import server
+    monkeypatch.setenv("MONGODB_URI", "mongodb://invalid_host_explicit:27017/fake_db")
+    monkeypatch.setattr(server, "mongo_url", "mongodb://invalid_host_explicit:27017/fake_db")
+    
+    proxy = DatabaseProxy()
+    with pytest.raises(Exception):
+        await proxy._ensure_backend()
+
+
+@pytest.mark.anyio
+async def test_database_proxy_extracts_default_db_from_connection_string(monkeypatch):
+    from server import DatabaseProxy
+    import server
+    
+    class DummyClient:
+        def __init__(self, *args, **kwargs):
+            pass
+        
+        class Admin:
+            async def command(self, cmd):
+                return {"ok": 1}
+        admin = Admin()
+        
+        def get_default_database(self):
+            class DummyDb:
+                pass
+            db = DummyDb()
+            db.name = "my_custom_db"
+            return db
+            
+    monkeypatch.setattr(server, "AsyncIOMotorClient", DummyClient)
+    monkeypatch.setenv("MONGODB_URI", "mongodb://localhost:27017/my_custom_db")
+    monkeypatch.setattr(server, "mongo_url", "mongodb://localhost:27017/my_custom_db")
+    
+    proxy = DatabaseProxy()
+    backend = await proxy._ensure_backend()
+    assert backend == "mongo"
+    assert proxy._real_db.name == "my_custom_db"

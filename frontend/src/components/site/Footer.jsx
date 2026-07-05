@@ -5,7 +5,7 @@ import { Instagram, Facebook, MessageCircle, Send } from "lucide-react";
 import { useRestaurant } from "@/hooks/useSiteData";
 import { site } from "@/data/site";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = `${process.env.REACT_APP_BACKEND_URL || "http://localhost:8000"}/api`;
 
 export default function Footer() {
   const { data: apiData } = useRestaurant();

@@ -180,13 +180,22 @@ class DatabaseProxy:
     async def _ensure_backend(self):
         if self._active_backend is not None:
             return self._active_backend
+        
+        has_configured_mongo = bool(os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URL"))
+        
         try:
             client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=30000, connectTimeoutMS=30000, socketTimeoutMS=30000)
             await client.admin.command("ping")
-            self._real_db = client[db_name]
+            try:
+                self._real_db = client.get_default_database()
+            except Exception:
+                self._real_db = client[db_name]
             self._active_backend = "mongo"
             logger.info("Connected to MongoDB")
         except Exception as exc:
+            if has_configured_mongo:
+                logger.error("MongoDB configured but connection failed: %s", exc)
+                raise exc
             self._active_backend = "fallback"
             logger.warning("MongoDB unavailable; using in-memory fallback store: %s", exc)
         return self._active_backend
@@ -336,11 +345,17 @@ async def _ensure_branding_access(user: Dict[str, Any], resource: str) -> None:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
-async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)):
-    if not creds:
+async def get_current_user(request: Request, creds: HTTPAuthorizationCredentials = Depends(bearer)):
+    token = None
+    if creds:
+        token = creds.credentials
+    else:
+        token = request.query_params.get("token")
+        
+    if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
-        payload = jwt.decode(creds.credentials, JWT_SECRET, algorithms=[JWT_ALGO])
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
         user = await db["users"].find_one({"id": payload["sub"]}, {"_id": 0})
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
@@ -768,10 +783,7 @@ async def ensure_indexes():
 
 @app.on_event("startup")
 async def startup_event():
-    try:
-        await db._ensure_backend()
-    except Exception as exc:
-        logger.error("Failed to ensure database backend: %s", exc)
+    await db._ensure_backend()
         
     if db._active_backend == "mongo":
         try:

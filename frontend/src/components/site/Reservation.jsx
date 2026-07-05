@@ -5,7 +5,7 @@ import { CalendarCheck, Loader2 } from "lucide-react";
 import Reveal from "./Reveal";
 import SectionHeading from "./SectionHeading";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = `${process.env.REACT_APP_BACKEND_URL || "http://localhost:8000"}/api`;
 
 const initial = { name: "", phone: "", email: "", guests: 2, date: "", time: "", message: "" };
 

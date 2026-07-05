@@ -81,16 +81,14 @@ class BaseValidators:
 def validate_menu_payload(cls, values):
     if values.get("name") is not None:
         values["name"] = BaseValidators.validate_name(values["name"])
+    if values.get("description") is not None:
+        values["description"] = BaseValidators.validate_text(values["description"], "description", 5)
     if values.get("price") is not None:
         values["price"] = BaseValidators.validate_price(values["price"])
     if values.get("category") is not None:
         values["category"] = values["category"].strip()
-    # Strip removed fields so they never reach the model
-    values.pop("description", None)
-    values.pop("img", None)
-    values.pop("imageUrl", None)
-    values.pop("publicId", None)
-    values.pop("uploadedAt", None)
+    if values.get("img") is None or values.get("img") == "":
+        values["img"] = ""
     return values
 
 
