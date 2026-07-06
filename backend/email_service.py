@@ -5,6 +5,7 @@ import asyncio
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Dict, Any, Tuple
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -30,18 +31,103 @@ def _send_smtp(host: str, port: int, use_tls: bool, user: str, password: str, ma
             server.sendmail(mail_from, recipient, message_str)
 
 
+# ==============================================================================
+# HTTP DISPATCH LOGIC (API Fallbacks for SMTP blockages like Render Free tier)
+# ==============================================================================
+
+def _send_via_resend(api_key: str, mail_from: str, recipient: str, subject: str, html: str, text: str):
+    url = "https://api.resend.com/emails"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "from": mail_from,
+        "to": [recipient],
+        "subject": subject,
+        "html": html,
+        "text": text
+    }
+    resp = requests.post(url, json=payload, headers=headers, timeout=10)
+    resp.raise_for_status()
+
+def _send_via_brevo(api_key: str, mail_from: str, recipient: str, subject: str, html: str, text: str):
+    url = "https://api.brevo.com/v3/smtp/email"
+    headers = {
+        "api-key": api_key,
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "sender": {"email": mail_from},
+        "to": [{"email": recipient}],
+        "subject": subject,
+        "htmlContent": html,
+        "textContent": text
+    }
+    resp = requests.post(url, json=payload, headers=headers, timeout=10)
+    resp.raise_for_status()
+
+def _send_via_sendgrid(api_key: str, mail_from: str, recipient: str, subject: str, html: str, text: str):
+    url = "https://api.sendgrid.com/v3/mail/send"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "personalizations": [{"to": [{"email": recipient}]}],
+        "from": {"email": mail_from},
+        "subject": subject,
+        "content": [
+            {"type": "text/plain", "value": text},
+            {"type": "text/html", "value": html}
+        ]
+    }
+    resp = requests.post(url, json=payload, headers=headers, timeout=10)
+    resp.raise_for_status()
+
+
 async def send_email(recipient: str, subject: str, html_content: str, text_content: str) -> bool:
     """
-    Core reusable email delivery service. Reads configuration dynamically from environment variables.
+    Core reusable email delivery service. Supports HTTP APIs (Resend, Brevo, SendGrid) and SMTP fallback.
     """
+    resend_key = os.environ.get("RESEND_API_KEY") or "re_Y8S27m7k_mRLwuVkR6gHX1Kt3Pp3EBPQi"
+    brevo_key = os.environ.get("BREVO_API_KEY", "")
+    sendgrid_key = os.environ.get("SENDGRID_API_KEY", "")
+    
     email_user = os.environ.get("EMAIL_USER", "")
     email_pass = os.environ.get("EMAIL_PASS", "")
-    email_from = os.environ.get("EMAIL_FROM", email_user)
     
-    # Support both code-defined EMAIL_HOST and README-defined SMTP_HOST
+    # Resolve sender email
+    # For Resend, if no EMAIL_FROM is set, we default to onboarding@resend.dev
+    if resend_key and not os.environ.get("EMAIL_FROM"):
+        email_from = "onboarding@resend.dev"
+    else:
+        email_from = os.environ.get("EMAIL_FROM") or email_user or "noreply@example.com"
+
+    if not recipient:
+        logger.warning("Recipient email address is missing.")
+        raise ValueError("Recipient email address is missing.")
+
+    # Try HTTP APIs first to bypass Render SMTP blocking
+    if resend_key:
+        logger.info("Dispatching email via Resend HTTP API")
+        await asyncio.to_thread(_send_via_resend, resend_key, email_from, recipient, subject, html_content, text_content)
+        return True
+    elif brevo_key:
+        logger.info("Dispatching email via Brevo HTTP API")
+        await asyncio.to_thread(_send_via_brevo, brevo_key, email_from, recipient, subject, html_content, text_content)
+        return True
+    elif sendgrid_key:
+        logger.info("Dispatching email via SendGrid HTTP API")
+        await asyncio.to_thread(_send_via_sendgrid, sendgrid_key, email_from, recipient, subject, html_content, text_content)
+        return True
+
+    # Fall back to standard SMTP if no API keys are present
+    if not email_user or not email_pass:
+        logger.warning("Email configuration missing. To send emails, configure RESEND_API_KEY, BREVO_API_KEY, SENDGRID_API_KEY, or EMAIL_USER/EMAIL_PASS.")
+        raise ValueError("Email credentials or API key not configured.")
+
     smtp_host = os.environ.get("EMAIL_HOST") or os.environ.get("SMTP_HOST", "smtp.gmail.com")
-    
-    # Support both code-defined EMAIL_PORT and README-defined SMTP_PORT
     smtp_port_raw = os.environ.get("EMAIL_PORT") or os.environ.get("SMTP_PORT", "587")
     try:
         smtp_port = int(smtp_port_raw)
@@ -49,17 +135,8 @@ async def send_email(recipient: str, subject: str, html_content: str, text_conte
         logger.warning(f"Invalid SMTP port '{smtp_port_raw}', falling back to 587")
         smtp_port = 587
         
-    # Support both code-defined EMAIL_USE_TLS and README-defined SMTP_TLS
     tls_raw = os.environ.get("EMAIL_USE_TLS") or os.environ.get("SMTP_TLS") or os.environ.get("EMAIL_TLS", "true")
     use_tls = tls_raw.lower() == "true"
-
-    if not email_user or not email_pass:
-        logger.warning("Email configuration missing (EMAIL_USER/EMAIL_PASS). Skipping email dispatch.")
-        raise ValueError("EMAIL_USER or EMAIL_PASS environment variable is not configured.")
-
-    if not recipient:
-        logger.warning("Recipient email address is missing.")
-        raise ValueError("Recipient email address is missing.")
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
