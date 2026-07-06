@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE = (process.env.REACT_APP_BACKEND_URL || "http://localhost:8000") + "/api";
+const BASE = (process.env.REACT_APP_BACKEND_URL || "https://api.vanas.arpith.in") + "/api";
 
 const api = axios.create({ baseURL: BASE });
 

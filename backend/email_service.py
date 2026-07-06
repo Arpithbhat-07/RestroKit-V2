@@ -354,7 +354,7 @@ def _get_logo_html(rest_logo: str, rest_name: str) -> str:
     if rest_logo.startswith("http"):
         return f'<img src="{rest_logo}" alt="{rest_name} Logo" class="logo" />'
     elif rest_logo.startswith("/"):
-        site_url = os.environ.get("SITE_URL", "http://localhost:3000")
+        site_url = os.environ.get("SITE_URL", "https://vanas.arpith.in")
         return f'<img src="{site_url.rstrip("/")}{rest_logo}" alt="{rest_name} Logo" class="logo" />'
     return ""
 
